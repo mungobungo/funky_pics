@@ -2,11 +2,11 @@ import cPickle as pickle
 import pandas as pd
 from pandas  import read_csv
 
-ys = pickle.load(open('y_pred2.pickle','rb'))
+ys = pickle.load(open('y_pred7.pickle','rb'))
 
-df = read_csv('training.csv')
+df = read_csv('../training.csv')
 
-idlook = read_csv('IdLookupTable.csv')
+idlook = read_csv('../idlook.csv')
 
 mapper = dict(zip(df.columns[:-1], xrange(0, len(df.columns))))
 
@@ -19,5 +19,5 @@ for x in idlook.values:
 
 
 pdf2 = pd.DataFrame(arr, columns=['RowId','Location'])
-pdf2.to_csv('submission.csv', columns=['RowId','Location'], index=False)
+pdf2.to_csv('submission7.csv', columns=['RowId','Location'], index=False)
 

@@ -81,6 +81,101 @@ def plot_faces(X, y, name):
 	fig.savefig(name + "_faces.png")
 	pyplot.close()
 
+from nolearn.lasagne import BatchIterator
+
+class FlipBatchIterator(BatchIterator):
+    flip_indices = [
+        (0, 2), (1, 3),
+        (4, 8), (5, 9), (6, 10), (7, 11),
+        (12, 16), (13, 17), (14, 18), (15, 19),
+        (22, 24), (23, 25),
+        ]
+
+    def transform(self, Xb, yb):
+        Xb, yb = super(FlipBatchIterator, self).transform(Xb, yb)
+
+        # Flip half of the images in this batch at random:
+        bs = Xb.shape[0]
+        indices = np.random.choice(bs, bs / 2, replace=False)
+        Xb[indices] = Xb[indices, :, :, ::-1]
+
+        if yb is not None:
+            # Horizontal flip of all x coordinates:
+            yb[indices, ::2] = yb[indices, ::2] * -1
+
+            # Swap places, e.g. left_eye_center_x -> right_eye_center_x
+            for a, b in self.flip_indices:
+                yb[indices, a], yb[indices, b] = (
+                    yb[indices, b], yb[indices, a])
+
+        return Xb, yb
+
+
+import theano
+
+def float32(k):
+    return np.cast['float32'](k)
+
+class AdjustVariable(object):
+    def __init__(self, name, start=0.03, stop=0.001):
+        self.name = name
+        self.start, self.stop = start, stop
+        self.ls = None
+
+    def __call__(self, nn, train_history):
+        if self.ls is None:
+            self.ls = np.linspace(self.start, self.stop, nn.max_epochs)
+
+        epoch = train_history[-1]['epoch']
+        new_value = float32(self.ls[epoch - 1])
+        getattr(nn, self.name).set_value(new_value)
+
+net6 = NeuralNet(
+    layers=[
+        ('input', layers.InputLayer),
+        ('conv1', layers.Conv2DLayer),
+        ('pool1', layers.MaxPool2DLayer),
+        ('dropout1', layers.DropoutLayer),  # !
+        ('conv2', layers.Conv2DLayer),
+        ('pool2', layers.MaxPool2DLayer),
+        ('dropout2', layers.DropoutLayer),  # !
+        ('conv3', layers.Conv2DLayer),
+        ('pool3', layers.MaxPool2DLayer),
+        ('dropout3', layers.DropoutLayer),  # !
+        ('hidden4', layers.DenseLayer),
+        ('dropout4', layers.DropoutLayer),  # !
+        ('hidden5', layers.DenseLayer),
+	('dropout5',layers.DropoutLayer),
+	('hidden6',layers.DenseLayer),
+        ('output', layers.DenseLayer),
+        ],
+    input_shape=(None, 1, 96, 96),
+    conv1_num_filters=32, conv1_filter_size=(3, 3), pool1_pool_size=(2, 2),
+    dropout1_p=0.1,  # !
+    conv2_num_filters=64, conv2_filter_size=(2, 2), pool2_pool_size=(2, 2),
+    dropout2_p=0.2,  # !
+    conv3_num_filters=128, conv3_filter_size=(2, 2), pool3_pool_size=(2, 2),
+    dropout3_p=0.3,  # !
+    hidden4_num_units=1000,
+    dropout4_p=0.4,  # !
+    hidden5_num_units=750,
+    dropout5_p=0.5,
+    hidden6_num_units=300,
+    output_num_units=30, output_nonlinearity=None,
+
+    update_learning_rate=theano.shared(float32(0.03)),
+    update_momentum=theano.shared(float32(0.9)),
+
+    regression=True,
+    batch_iterator_train=FlipBatchIterator(batch_size=128),
+    on_epoch_finished=[
+        AdjustVariable('update_learning_rate', start=0.03, stop=0.0001),
+        AdjustVariable('update_momentum', start=0.9, stop=0.999),
+        ],
+    max_epochs=10000,
+    verbose=1,
+    )
+
 
 net1 = NeuralNet(
     layers=[  # three layers: one hidden layer
@@ -104,6 +199,8 @@ net1 = NeuralNet(
     verbose=1,
     )
 
+import sys
+sys.setrecursionlimit(10000)
 
 X,y = load()
 ## net1.fit(X,y)
@@ -122,19 +219,21 @@ plot_train(net1, "net1")
 plot_faces(testX, y_pred, "net1")
 
 
-#X, y = load2d()  # load 2-d data
-#net2.fit(X, y)
+X, y = load2d()  # load 2-d data
+net6.fit(X, y)
 
-net2 = pickle.load(open('net2.pickle', 'rb'))
+with open('net7.pickle','wb') as f:
+	pickle.dump(net6, f, -1)
 
-plot_train(net2, "net2")
+net6 = pickle.load(open('net7.pickle', 'rb'))
+
+plot_train(net6, "net7")
 convX,_ = load2d(test=True)
-y_pred2 = net2.predict(convX)
+y_pred6 = net6.predict(convX)
 
-with open('y_pred2.pickle', 'wb') as f:
-	pickle.dump(y_pred2, f,-1)
+with open('y_pred7.pickle', 'wb') as f:
+	pickle.dump(y_pred6, f,-1)
 
-plot_faces(convX, y_pred2, "net2")
+plot_faces(convX, y_pred6, "net7")
 
-cols = ['left_eye_center_x','left_eye_center_y','right_eye_center_x','right_eye_center_y','left_eye_inner_corner_x','left_eye_inner_corner_y','left_eye_outer_corner_x','left_eye_outer_corner_y','right_eye_inner_corner_x','right_eye_inner_corner_y','right_eye_outer_corner_x','right_eye_outer_corner_y','left_eyebrow_inner_end_x','left_eyebrow_inner_end_y','left_eyebrow_outer_end_x','left_eyebrow_outer_end_y','right_eyebrow_inner_end_x','right_eyebrow_inner_end_y','right_eyebrow_outer_end_x','right_eyebrow_outer_end_y','nose_tip_x','nose_tip_y','mouth_left_corner_x','mouth_left_corner_y','mouth_right_corner_x','mouth_right_corner_y','mouth_center_top_lip_x','mouth_center_top_lip_y','mouth_center_bottom_lip_x','mouth_center_bottom_lip_y']
 
