@@ -14,6 +14,8 @@ matplotlib.use('Agg')
 from matplotlib import pyplot
 import cPickle as pickle
 
+from sklearn.metrics import mean_squared_error
+
 FTRAIN = '~/gamma/training.csv'
 FTEST = '~/gamma/test.csv'
 
@@ -204,10 +206,11 @@ sys.setrecursionlimit(10000)
 
 X,y = load()
 ## net1.fit(X,y)
-net1 = pickle.load(open('net1.pickle','rb'))
-
+net1 = pickle.load(open('../net1.pickle','rb'))
 testX, _ = load(test=True)
 y_pred = net1.predict(testX)
+
+print("mean_squared for 1 "  + str(mean_squared_error(net1.predict(X),y)))
 
 # Training for 1000 epochs will take a while.  We'll pickle the
 # trained model so that we can load it back later:
@@ -220,20 +223,21 @@ plot_faces(testX, y_pred, "net1")
 
 
 X, y = load2d()  # load 2-d data
-net6.fit(X, y)
+#net6.fit(X, y)
 
-with open('net7.pickle','wb') as f:
-	pickle.dump(net6, f, -1)
+#with open('net7.pickle','wb') as f:
+#	pickle.dump(net6, f, -1)i
 
-net6 = pickle.load(open('net7.pickle', 'rb'))
+net6 = pickle.load(open('../net7.pickle', 'rb'))
 
 plot_train(net6, "net7")
 convX,_ = load2d(test=True)
 y_pred6 = net6.predict(convX)
 
-with open('y_pred7.pickle', 'wb') as f:
-	pickle.dump(y_pred6, f,-1)
+#with open('y_pred7.pickle', 'wb') as f:
+#	pickle.dump(y_pred6, f,-1)
 
 plot_faces(convX, y_pred6, "net7")
 
+print("mean_squared for 7 "  + str(mean_squared_error(net6.predict(X),y)))
 
